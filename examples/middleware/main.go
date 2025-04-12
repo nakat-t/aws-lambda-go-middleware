@@ -11,14 +11,14 @@ import (
 	mw "github.com/nakat-t/aws-lambda-go-middleware/middleware"
 )
 
-// mainHandler はリクエスト ID を取得し、それをボディに含めて返すシンプルなハンドラです。
+// mainHandler is a simple handler that retrieves the request ID and includes it in the response body.
 func mainHandler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	// RequestID ミドルウェアによって設定されたリクエスト ID を取得
+	// Get the request ID set by the RequestID middleware
 	reqID := mw.GetReqID(ctx)
 
 	log.Printf("Handler received request. RequestID: %s", reqID)
 
-	// レスポンスボディを作成
+	// Create response body
 	responseBody := map[string]string{
 		"message":   "Request processed successfully",
 		"requestID": reqID,
@@ -36,24 +36,24 @@ func main() {
 	m1 := mw.RequestID
 	m2 := mw.AllowContentType([]string{"application/json"}, mw.WithResponseBody("Only application/json is allowed"))
 
-	// チェーンを最終ハンドラに適用
+	// Apply the chain to the final handler
 	wrappedHandler := mw.Use(mainHandler, m1, m2)
 
-	// --- サンプルリクエストの実行 ---
+	// --- Running sample requests ---
 	log.Println("--- Running Sample Request 1 (Allowed Content-Type) ---")
 	sampleRequestAllowed := events.APIGatewayProxyRequest{
 		HTTPMethod: "POST",
 		Path:       "/test",
 		Headers: map[string]string{
-			"Content-Type": "application/json; charset=utf-8", // 許可されるタイプ
+			"Content-Type": "application/json; charset=utf-8", // Allowed type
 		},
 		Body: `{"data": "sample"}`,
 		RequestContext: events.APIGatewayProxyRequestContext{
-			RequestID: "sample-req-id-1", // サンプルのリクエストID
+			RequestID: "sample-req-id-1", // Sample request ID
 		},
 	}
 
-	// ハンドラを実行
+	// Execute the handler
 	responseAllowed, errAllowed := wrappedHandler(context.Background(), sampleRequestAllowed)
 	if errAllowed != nil {
 		log.Printf("Error from handler (Allowed): %v", errAllowed)
@@ -61,14 +61,14 @@ func main() {
 		log.Printf("Response (Allowed): StatusCode=%d, Body=%s", responseAllowed.StatusCode, responseAllowed.Body)
 	}
 
-	fmt.Println() // 区切り線
+	fmt.Println() // Separator line
 
 	log.Println("--- Running Sample Request 2 (Disallowed Content-Type) ---")
 	sampleRequestDisallowed := events.APIGatewayProxyRequest{
 		HTTPMethod: "POST",
 		Path:       "/test",
 		Headers: map[string]string{
-			"Content-Type": "text/plain", // 許可されていないタイプ
+			"Content-Type": "text/plain", // Disallowed type
 		},
 		Body: "plain text data",
 		RequestContext: events.APIGatewayProxyRequestContext{
@@ -76,10 +76,10 @@ func main() {
 		},
 	}
 
-	// ハンドラを実行
+	// Execute the handler
 	responseDisallowed, errDisallowed := wrappedHandler(context.Background(), sampleRequestDisallowed)
 	if errDisallowed != nil {
-		// AllowContentType はエラーを返さず、レスポンスで処理するため、通常ここには来ない
+		// AllowContentType doesn't return an error but handles it in the response, so this typically doesn't happen
 		log.Printf("Error from handler (Disallowed): %v", errDisallowed)
 	} else {
 		log.Printf("Response (Disallowed): StatusCode=%d, Body=%s", responseDisallowed.StatusCode, responseDisallowed.Body)
@@ -89,16 +89,16 @@ func main() {
 
 	log.Println("--- Running Sample Request 3 (Missing Content-Type) ---")
 	sampleRequestMissing := events.APIGatewayProxyRequest{
-		HTTPMethod: "POST", // POST なので Content-Type が期待される
+		HTTPMethod: "POST", // POST, so Content-Type is expected
 		Path:       "/test",
-		Headers:    map[string]string{}, // Content-Type なし
+		Headers:    map[string]string{}, // No Content-Type
 		Body:       `{"data": "sample"}`,
 		RequestContext: events.APIGatewayProxyRequestContext{
 			RequestID: "sample-req-id-3",
 		},
 	}
 
-	// ハンドラを実行
+	// Execute the handler
 	responseMissing, errMissing := wrappedHandler(context.Background(), sampleRequestMissing)
 	if errMissing != nil {
 		log.Printf("Error from handler (Missing): %v", errMissing)

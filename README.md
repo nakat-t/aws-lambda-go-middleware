@@ -3,19 +3,19 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/armai/aws-lambda-go-middleware/middleware.svg)](https://pkg.go.dev/github.com/armai/aws-lambda-go-middleware/middleware)
 <!-- Add other badges like build status, code coverage, license etc. if applicable -->
 
-`aws-lambda-go-middleware` は、AWS Lambda の Go ハンドラ (`events.APIGatewayProxyRequest` を扱う) に対して、`net/http` スタイルのミドルウェア機能を提供するライブラリです。リクエストの前処理、レスポンスの後処理、エラーハンドリングなどをモジュール化し、再利用可能なコンポーネントとしてハンドラに適用できます。
+`aws-lambda-go-middleware` is a library that provides `net/http` style middleware functionality for AWS Lambda Go handlers (handling `events.APIGatewayProxyRequest`). It allows you to modularize request preprocessing, response postprocessing, error handling, etc., and apply them to handlers as reusable components.
 
-## インストール
+## Installation
 
 ```bash
 go get github.com/nakat-t/aws-lambda-go-middleware/middleware
 ```
 
-## コアコンセプト
+## Core Concepts
 
 ### `HandlerFunc`
 
-AWS Lambda の API Gateway Proxy 統合ハンドラのシグネチャを表す関数型です。ミドルウェアチェーンの最終的なターゲットとなります。
+A function type that represents the signature of an AWS Lambda API Gateway Proxy integration handler. This is the ultimate target of the middleware chain.
 
 ```go
 type HandlerFunc func(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error)
@@ -23,7 +23,7 @@ type HandlerFunc func(ctx context.Context, request events.APIGatewayProxyRequest
 
 ### `MiddlewareFunc`
 
-`HandlerFunc` を受け取り、新しい `HandlerFunc` を返す関数型です。これを実装する関数がミドルウェアになります。
+A function type that takes a `HandlerFunc` and returns a new `HandlerFunc`. Functions that implement this become middleware.
 
 ```go
 type MiddlewareFunc func(next HandlerFunc) HandlerFunc
@@ -31,15 +31,15 @@ type MiddlewareFunc func(next HandlerFunc) HandlerFunc
 
 ### `Use`
 
-ミドルウェアを `HandlerFunc` に適用するための関数です。
+A function to apply middleware to a `HandlerFunc`.
 
 ```go
-// ハンドラ h にミドルウェア m1, m2, m3 を適用
+// Apply middleware m1, m2, m3 to handler h
 wrappedHandler := middleware.Use(h, m1, m2, m3)
-// 実行順: m1 -> m2 -> m3 -> h -> m3 -> m2 -> m1
+// Execution order: m1 -> m2 -> m3 -> h -> m3 -> m2 -> m1
 ```
 
-## 使用方法
+## Usage
 
 ```go
 package main
@@ -54,9 +54,9 @@ import (
 	mw "github.com/nakat-t/aws-lambda-go-middleware/middleware"
 )
 
-// 実際のビジネスロジック
+// Actual business logic
 func myHandler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	reqID := mw.GetReqID(ctx) // RequestID ミドルウェアから値を取得
+	reqID := mw.GetReqID(ctx) // Get value from RequestID middleware
 	log.Printf("Processing request: %s", reqID)
 	// ... business logic ...
 	return events.APIGatewayProxyResponse{
@@ -66,27 +66,27 @@ func myHandler(ctx context.Context, request events.APIGatewayProxyRequest) (even
 }
 
 func main() {
-    // リクエストIDをコンテキストに追加
+    // Add request ID to context
 	m1 := mw.RequestID
-	// application/json のみを許可
+	// Allow only application/json
 	m2 := mw.AllowContentType([]string{"application/json"})
 
-	// チェーンをハンドラに適用
+	// Apply chain to handler
 	wrappedHandler := mw.Use(myHandler, m1, m2)
 
-	// Lambda を開始
+	// Start Lambda
 	lambda.Start(wrappedHandler)
 }
 
 ```
 
-## 提供されているミドルウェア
+## Provided Middleware
 
 ### `RequestID`
 
-API Gateway リクエストコンテキストからリクエスト ID (`RequestContext.RequestID`) を抽出し、`context.Context` に設定します。後続のミドルウェアやハンドラは `GetReqID(ctx)` を使用してこの ID を取得できます。これはログやトレースに役立ちます。
+Extracts the request ID (`RequestContext.RequestID`) from the API Gateway request context and sets it in the `context.Context`. Subsequent middleware and handlers can retrieve this ID using `GetReqID(ctx)`. This is useful for logging and tracing.
 
-**シグネチャ:**
+**Signature:**
 
 ```go
 func RequestID(next HandlerFunc) HandlerFunc
@@ -95,36 +95,36 @@ func GetReqID(ctx context.Context) string
 
 ### `AllowContentType`
 
-リクエストの `Content-Type` ヘッダーが、指定された許可リストに含まれているかを検証します。
+Validates that the request's `Content-Type` header is included in the specified allowlist.
 
-**シグネチャ:**
+**Signature:**
 
 ```go
 func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) MiddlewareFunc
 ```
 
-**オプション:**
+**Options:**
 
 ```go
-// Content-Type が許可されていない場合に返すレスポンスボディをカスタマイズします。
+// Customize the response body returned when Content-Type is not allowed.
 func WithResponseBody(body string) AllowContentTypeOption
 ```
 
-**比較ルール:**
+**Comparison Rules:**
 
-*   メディアタイプ部分のみを比較します (例: `application/json` は `application/json; charset=utf-8` と一致)。
-*   比較は大文字小文字を区別しません。
-*   `Content-Type` ヘッダーが存在しない場合、または許可リストに含まれない場合は `415 Unsupported Media Type` を返します。
+*   Only compares the media type part (e.g., `application/json` matches `application/json; charset=utf-8`).
+*   Comparison is case-insensitive.
+*   Returns `415 Unsupported Media Type` if the `Content-Type` header does not exist or is not in the allowlist.
 
-## サンプルコード
+## Sample Code
 
-`RequestID` と `AllowContentType` の使用例を含む実行可能なサンプルコードは、リポジトリの `examples/middleware` ディレクトリを参照してください。
+For a runnable sample code that includes examples of using `RequestID` and `AllowContentType`, refer to the `examples/middleware` directory in the repository.
 
 ```bash
-# リポジトリのルートディレクトリから実行
+# Run from the repository root directory
 go run examples/middleware/main.go
 ```
 
-## ライセンス
+## License
 
-このプロジェクトは [LICENSE](LICENSE) ファイルで定義されているライセンスの下で公開されています。
+This project is released under the license defined in the [LICENSE](LICENSE) file.

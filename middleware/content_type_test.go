@@ -9,17 +9,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// mockNextHandler はテスト用の最終ハンドラです。
-// 呼び出された場合は常に 200 OK を返します。
+// mockNextHandler is a final handler for testing.
+// It always returns 200 OK when called.
 var mockNextHandler = func(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	return events.APIGatewayProxyResponse{StatusCode: http.StatusOK, Body: "OK"}, nil
 }
 
-// createRequest はテスト用の APIGatewayProxyRequest を作成します。
+// createRequest creates an APIGatewayProxyRequest for testing.
 func createRequest(contentType string) events.APIGatewayProxyRequest {
 	headers := make(map[string]string)
 	if contentType != "" {
-		// http.CanonicalHeaderKey を使って正規化されたキーで設定
+		// Set with normalized key using http.CanonicalHeaderKey
 		headers[http.CanonicalHeaderKey("Content-Type")] = contentType
 	}
 	return events.APIGatewayProxyRequest{
@@ -33,73 +33,73 @@ func TestAllowContentType(t *testing.T) {
 		allowedContentTypes []string
 		requestContentType  string
 		expectedStatusCode  int
-		expectNextCalled    bool // next ハンドラが呼ばれることを期待するかどうか
+		expectNextCalled    bool // Whether we expect the next handler to be called
 	}{
 		{
-			name:                "許可された Content-Type (完全一致)",
+			name:                "Allowed Content-Type (exact match)",
 			allowedContentTypes: []string{"application/json"},
 			requestContentType:  "application/json",
 			expectedStatusCode:  http.StatusOK,
 			expectNextCalled:    true,
 		},
 		{
-			name:                "許可された Content-Type (パラメータ付き)",
+			name:                "Allowed Content-Type (with parameters)",
 			allowedContentTypes: []string{"application/json"},
 			requestContentType:  "application/json; charset=utf-8",
 			expectedStatusCode:  http.StatusOK,
 			expectNextCalled:    true,
 		},
 		{
-			name:                "許可された Content-Type (大文字小文字区別なし)",
+			name:                "Allowed Content-Type (case insensitive)",
 			allowedContentTypes: []string{"application/json"},
 			requestContentType:  "Application/JSON",
 			expectedStatusCode:  http.StatusOK,
 			expectNextCalled:    true,
 		},
 		{
-			name:                "許可されていない Content-Type",
+			name:                "Disallowed Content-Type",
 			allowedContentTypes: []string{"application/json"},
 			requestContentType:  "text/xml",
 			expectedStatusCode:  http.StatusUnsupportedMediaType,
 			expectNextCalled:    false,
 		},
 		{
-			name:                "Content-Type ヘッダーなし",
+			name:                "Missing Content-Type header",
 			allowedContentTypes: []string{"application/json"},
-			requestContentType:  "", // ヘッダーなしを示す
+			requestContentType:  "", // Indicates no header
 			expectedStatusCode:  http.StatusUnsupportedMediaType,
 			expectNextCalled:    false,
 		},
 		{
-			name:                "無効な Content-Type ヘッダー",
+			name:                "Invalid Content-Type header",
 			allowedContentTypes: []string{"application/json"},
 			requestContentType:  "invalid-content-type",
 			expectedStatusCode:  http.StatusUnsupportedMediaType,
 			expectNextCalled:    false,
 		},
 		{
-			name:                "許可リストが空の場合",
-			allowedContentTypes: []string{}, // 空のリスト
+			name:                "Empty allowlist",
+			allowedContentTypes: []string{}, // Empty list
 			requestContentType:  "application/json",
 			expectedStatusCode:  http.StatusUnsupportedMediaType,
 			expectNextCalled:    false,
 		},
 		{
-			name:                "複数の許可タイプ (許可されるケース)",
+			name:                "Multiple allowed types (allowed case)",
 			allowedContentTypes: []string{"application/json", "application/xml"},
 			requestContentType:  "application/xml",
 			expectedStatusCode:  http.StatusOK,
 			expectNextCalled:    true,
 		},
 		{
-			name:                "複数の許可タイプ (許可されないケース)",
+			name:                "Multiple allowed types (disallowed case)",
 			allowedContentTypes: []string{"application/json", "application/xml"},
 			requestContentType:  "text/plain",
 			expectedStatusCode:  http.StatusUnsupportedMediaType,
 			expectNextCalled:    false,
 		},
 		{
-			name:                "許可リストに無効なタイプが含まれる場合 (無視される)",
+			name:                "Allowlist contains invalid type (ignored)",
 			allowedContentTypes: []string{"application/json", "invalid-type"},
 			requestContentType:  "application/json",
 			expectedStatusCode:  http.StatusOK,
@@ -112,33 +112,33 @@ func TestAllowContentType(t *testing.T) {
 			assert := assert.New(t)
 			nextCalled := false
 
-			// next ハンドラが呼ばれたかを記録するモック
+			// Mock to record if the next handler was called
 			mockHandler := func(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 				nextCalled = true
 				return mockNextHandler(ctx, request)
 			}
 
-			// テスト対象のミドルウェアを作成
+			// Create the middleware under test
 			middleware := AllowContentType(tt.allowedContentTypes)
 			handlerWithMiddleware := middleware(mockHandler)
 
-			// リクエストを作成
+			// Create the request
 			request := createRequest(tt.requestContentType)
 
-			// ハンドラを実行
+			// Execute the handler
 			response, err := handlerWithMiddleware(context.Background(), request)
 
-			// アサーション
+			// Assertions
 			assert.NoError(err)
 			assert.Equal(tt.expectedStatusCode, response.StatusCode)
 			assert.Equal(tt.expectNextCalled, nextCalled, "Next handler call expectation mismatch")
 
 			if !tt.expectNextCalled {
-				// エラー時のデフォルトボディを確認
+				// Check default body for error case
 				assert.Contains(response.Body, defaultUnsupportedMediaTypeBody)
 				assert.Equal("text/plain; charset=utf-8", response.Headers["Content-Type"])
 			} else {
-				assert.Equal("OK", response.Body) // next ハンドラが返したボディ
+				assert.Equal("OK", response.Body) // Body returned by next handler
 			}
 		})
 	}
@@ -149,13 +149,13 @@ func TestAllowContentType_WithOptions(t *testing.T) {
 	customErrorBody := "Invalid Content Type Provided"
 	nextCalled := false
 
-	// next ハンドラが呼ばれたかを記録するモック
+	// Mock to record if the next handler was called
 	mockHandler := func(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 		nextCalled = true
 		return mockNextHandler(ctx, request)
 	}
 
-	// オプション付きでミドルウェアを作成
+	// Create middleware with options
 	middleware := AllowContentType(
 		[]string{"application/vnd.api+json"},
 		WithResponseBody(customErrorBody),
@@ -179,7 +179,7 @@ func TestAllowContentType_WithOptions(t *testing.T) {
 	assert.NoError(errDisallowed) // Middleware handles the error, returns response
 	assert.Equal(http.StatusUnsupportedMediaType, responseDisallowed.StatusCode)
 	assert.False(nextCalled, "Next handler should not be called for disallowed type")
-	// カスタムエラーボディを確認
+	// Check custom error body
 	assert.Equal(customErrorBody, responseDisallowed.Body)
 	assert.Equal("text/plain; charset=utf-8", responseDisallowed.Headers["Content-Type"])
 
@@ -203,7 +203,7 @@ func TestAllowContentType_DefaultOptions(t *testing.T) {
 		return mockNextHandler(ctx, request)
 	}
 
-	// オプションなしでミドルウェアを作成 (デフォルトでは何も許可しない)
+	// Create middleware without options (by default, nothing is allowed)
 	middleware := AllowContentType([]string{})
 	handlerWithMiddleware := middleware(mockHandler)
 
@@ -213,6 +213,6 @@ func TestAllowContentType_DefaultOptions(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal(http.StatusUnsupportedMediaType, response.StatusCode)
 	assert.False(nextCalled)
-	// デフォルトのエラーボディを確認
+	// Check default error body
 	assert.Equal(defaultUnsupportedMediaTypeBody, response.Body)
 }

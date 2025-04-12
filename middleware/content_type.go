@@ -10,51 +10,51 @@ import (
 )
 
 const (
-	// defaultUnsupportedMediaTypeBody は Content-Type が許可されていない場合のデフォルトのレスポンスボディです。
+	// defaultUnsupportedMediaTypeBody is the default response body when Content-Type is not allowed.
 	defaultUnsupportedMediaTypeBody = "Unsupported Media Type"
 )
 
-// AllowContentTypeConfig は AllowContentType ミドルウェアの設定です。
+// AllowContentTypeConfig is the configuration for the AllowContentType middleware.
 type AllowContentTypeConfig struct {
 	AllowedTypes []string
 	ErrorBody    string
 }
 
-// AllowContentTypeOption は AllowContentType の設定を変更するための関数型です。
+// AllowContentTypeOption is a function type to modify the AllowContentType configuration.
 type AllowContentTypeOption func(*AllowContentTypeConfig)
 
-// WithContentTypeErrorBody はエラー時のレスポンスボディを設定します。
+// WithResponseBody sets the response body for error cases.
 func WithResponseBody(body string) AllowContentTypeOption {
 	return func(c *AllowContentTypeConfig) {
 		c.ErrorBody = body
 	}
 }
 
-// AllowContentType はリクエストの Content-Type ヘッダーが指定されたリストに含まれているか検証するミドルウェアを作成します。
+// AllowContentType creates middleware that validates if the request's Content-Type header is included in the specified list.
 //
-// Content-Type ヘッダーが存在しない場合、またはリストに含まれていないメディアタイプの場合、
-// デフォルトではステータスコード 415 (Unsupported Media Type) と "Unsupported Media Type" というボディを持つレスポンスを返します。
-// レスポンスボディは WithResponseBody オプションでカスタマイズ可能です。
+// If the Content-Type header does not exist or has a media type not in the list,
+// it returns a response with status code 415 (Unsupported Media Type) and "Unsupported Media Type" body by default.
+// The response body can be customized with the WithResponseBody option.
 //
-// contentTypes リストが空の場合、すべての Content-Type を拒否します。
-// Content-Type の比較は、メディアタイプ部分のみで行われ、パラメータ（例: charset=utf-8）は無視されます。
-// 比較は大文字小文字を区別しません。
+// If the contentTypes list is empty, all Content-Types will be rejected.
+// Content-Type comparison is done only on the media type part, parameters (e.g., charset=utf-8) are ignored.
+// Comparison is case-insensitive.
 //
-// 例:
-// AllowContentType([]string{"application/json"}) は "application/json" および "application/json; charset=utf-8" を許可します。
-// AllowContentType([]string{"application/json", "application/xml"}) は JSON と XML の両方を許可します。
+// Examples:
+// AllowContentType([]string{"application/json"}) allows "application/json" and "application/json; charset=utf-8".
+// AllowContentType([]string{"application/json", "application/xml"}) allows both JSON and XML.
 func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) MiddlewareFunc {
-	// デフォルト設定
+	// Default configuration
 	config := AllowContentTypeConfig{
 		AllowedTypes: contentTypes,
 		ErrorBody:    defaultUnsupportedMediaTypeBody,
 	}
-	// オプションを適用
+	// Apply options
 	for _, opt := range opts {
 		opt(&config)
 	}
 
-	// 許可する Content-Type を小文字に変換し、マップに格納
+	// Convert allowed Content-Types to lowercase and store in a map
 	allowedMap := make(map[string]struct{}, len(config.AllowedTypes))
 	for _, ct := range config.AllowedTypes {
 		mediaType, _, err := mime.ParseMediaType(strings.ToLower(ct))
@@ -63,7 +63,7 @@ func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) Mid
 		}
 	}
 
-	// エラーレスポンスを準備
+	// Prepare error response
 	errorResponse := events.APIGatewayProxyResponse{
 		StatusCode: http.StatusUnsupportedMediaType,
 		Body:       config.ErrorBody,
@@ -75,19 +75,19 @@ func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) Mid
 			contentTypeHeader := request.Headers[http.CanonicalHeaderKey("Content-Type")]
 
 			if contentTypeHeader == "" {
-				// Content-Type が必須でない場合（GETなど）は許可する、という仕様も考えられるが、
-				// chi の AllowContentType はヘッダーがない場合も拒否するため、それに合わせる。
+				// One could consider allowing requests without Content-Type (like GET), but
+				// chi's AllowContentType also rejects requests without headers, so we follow that approach.
 				return errorResponse, nil
 			}
 
 			mediaType, _, err := mime.ParseMediaType(strings.ToLower(contentTypeHeader))
 			if err != nil {
-				// パース失敗時も拒否
+				// Also reject if parsing fails
 				return errorResponse, nil
 			}
 
 			if _, ok := allowedMap[mediaType]; !ok {
-				// 詳細なエラーメッセージが必要な場合はここで設定
+				// If more detailed error messages are needed, they can be set here
 				// errorResponse.Body = fmt.Sprintf("%s: Content-Type '%s' not allowed. Allowed: %v", config.ErrorBody, mediaType, config.AllowedTypes)
 				return errorResponse, nil
 			}

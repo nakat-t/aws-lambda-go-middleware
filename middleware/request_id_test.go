@@ -16,12 +16,12 @@ func TestRequestID(t *testing.T) {
 		expectedReqID  string
 	}{
 		{
-			name:           "リクエストIDが存在する場合",
+			name:           "When request ID exists",
 			inputRequestID: "test-request-id-123",
 			expectedReqID:  "test-request-id-123",
 		},
 		{
-			name:           "リクエストIDが存在しない場合 (空文字列)",
+			name:           "When request ID does not exist (empty string)",
 			inputRequestID: "",
 			expectedReqID:  "",
 		},
@@ -29,38 +29,38 @@ func TestRequestID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// アサーション用
+			// For assertions
 			assert := assert.New(t)
 
-			// テスト対象のリクエストを作成
+			// Create request for testing
 			request := events.APIGatewayProxyRequest{
 				RequestContext: events.APIGatewayProxyRequestContext{
 					RequestID: tt.inputRequestID,
 				},
 			}
 
-			// モックの最終ハンドラ
-			// このハンドラ内で GetReqID を呼び出し、期待通りの値が取得できるか確認
+			// Mock final handler
+			// Call GetReqID inside this handler and verify that the expected value can be retrieved
 			mockHandler := func(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-				// コンテキストからリクエストIDを取得
+				// Get request ID from context
 				actualReqID := GetReqID(ctx)
-				// 期待されるリクエストIDと一致するかアサート
+				// Assert that it matches the expected request ID
 				assert.Equal(tt.expectedReqID, actualReqID, "GetReqID should return the correct request ID")
 
-				// 元のリクエストオブジェクトが変更されていないことを確認 (念のため)
+				// Verify that the original request object is not modified (just in case)
 				assert.Equal(request, req, "Request object should not be modified")
 
-				// ダミーのレスポンスを返す
+				// Return a dummy response
 				return events.APIGatewayProxyResponse{StatusCode: http.StatusOK}, nil
 			}
 
-			// RequestID ミドルウェアを適用
+			// Apply RequestID middleware
 			handlerWithMiddleware := RequestID(mockHandler)
 
-			// ミドルウェアが適用されたハンドラを実行
+			// Execute the handler with middleware applied
 			response, err := handlerWithMiddleware(context.Background(), request)
 
-			// エラーが発生しないこと、ステータスコードが OK であることを確認
+			// Verify no error occurs and status code is OK
 			assert.NoError(err, "Handler should not return an error")
 			assert.Equal(http.StatusOK, response.StatusCode, "Status code should be OK")
 		})
@@ -68,15 +68,15 @@ func TestRequestID(t *testing.T) {
 }
 
 func TestGetReqID_ContextWithoutID(t *testing.T) {
-	// アサーション用
+	// For assertions
 	assert := assert.New(t)
 
-	// RequestID ミドルウェアによって設定されていない空のコンテキスト
+	// Empty context not set by RequestID middleware
 	ctx := context.Background()
 
-	// リクエストIDが設定されていないコンテキストから GetReqID を呼び出す
+	// Call GetReqID on a context without a request ID set
 	reqID := GetReqID(ctx)
 
-	// 空文字列が返されることを期待
+	// Expect an empty string to be returned
 	assert.Empty(reqID, "GetReqID should return an empty string for context without request ID")
 }

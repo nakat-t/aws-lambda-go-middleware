@@ -6,35 +6,35 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
-// reqIDKey はコンテキスト内でリクエスト ID を格納するためのキーの型です。
-// 非公開の型を使用することで、他のパッケージとのキー衝突を防ぎます。
+// reqIDKey is the type for the key used to store the request ID in the context.
+// Using a private type prevents key collisions with other packages.
 type reqIDKey struct{}
 
-// RequestID は、API Gateway のリクエストコンテキストからリクエスト ID を抽出し、
-// Go の context.Context に設定するミドルウェアです。
-// リクエスト ID が存在しない場合、空文字列が設定されます。
-// 後続のハンドラやミドルウェアは GetReqID 関数を使用してコンテキストからリクエスト ID を取得できます。
+// RequestID is middleware that extracts the request ID from the API Gateway request context
+// and sets it in the Go context.Context.
+// If the request ID does not exist, an empty string is set.
+// Subsequent handlers and middleware can use the GetReqID function to retrieve the request ID from the context.
 func RequestID(next HandlerFunc) HandlerFunc {
 	return func(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-		// APIGatewayProxyRequestContext からリクエスト ID を取得
+		// Get request ID from APIGatewayProxyRequestContext
 		reqID := request.RequestContext.RequestID
 
-		// 新しいコンテキストにリクエスト ID を設定
-		// context.WithValue を使用して、キー reqIDKey{} に reqID を関連付けます。
+		// Set request ID in the new context
+		// Using context.WithValue to associate reqID with the key reqIDKey{}
 		ctxWithReqID := context.WithValue(ctx, reqIDKey{}, reqID)
 
-		// リクエスト ID が設定された新しいコンテキストで次のハンドラを呼び出す
+		// Call the next handler with the new context containing the request ID
 		return next(ctxWithReqID, request)
 	}
 }
 
-// GetReqID は context.Context から RequestID ミドルウェアによって設定されたリクエスト ID を取得します。
-// リクエスト ID がコンテキストに存在しない場合、空文字列を返します。
+// GetReqID retrieves the request ID that was set by the RequestID middleware from the context.Context.
+// If the request ID does not exist in the context, an empty string is returned.
 func GetReqID(ctx context.Context) string {
-	// context.Value を使用して、キー reqIDKey{} に関連付けられた値を取得
+	// Use context.Value to get the value associated with the key reqIDKey{}
 	if reqID, ok := ctx.Value(reqIDKey{}).(string); ok {
 		return reqID
 	}
-	// キーが存在しない、または型が string でない場合は空文字列を返す
+	// Return an empty string if the key doesn't exist or the type is not string
 	return ""
 }

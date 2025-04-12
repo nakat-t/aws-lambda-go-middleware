@@ -7,31 +7,31 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
-// HandlerFunc は AWS Lambda の APIGatewayProxy イベントハンドラの型を表します。
-// これは、ミドルウェアチェーンの最終的なターゲットとなる関数です。
+// HandlerFunc represents the type of AWS Lambda APIGatewayProxy event handler.
+// This is the ultimate target function of the middleware chain.
 type HandlerFunc func(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error)
 
-// MiddlewareFunc は HandlerFunc をラップして新しい HandlerFunc を返すミドルウェアの型を表します。
-// ミドルウェアはリクエストの前処理、レスポンスの後処理、またはエラーハンドリングを行うために使用されます。
+// MiddlewareFunc represents the type of middleware that wraps a HandlerFunc and returns a new HandlerFunc.
+// Middleware is used for request preprocessing, response postprocessing, or error handling.
 type MiddlewareFunc func(next HandlerFunc) HandlerFunc
 
-// Chain はミドルウェアのチェーンを構築し、最終的なハンドラに適用するための構造体です。
-// ミドルウェアは追加された順序で実行されます（最初に追加されたものが最も外側）。
+// Chain is a structure for building a middleware chain and applying it to a final handler.
+// Middleware is executed in the order they are added (the first added is the outermost).
 type Chain struct {
 	middlewares []MiddlewareFunc
 }
 
-// NewChain は新しいミドルウェアチェーンを作成します。
-// 引数として渡されたミドルウェアが初期のチェーンを構成します。
+// NewChain creates a new middleware chain.
+// The middleware passed as arguments will form the initial chain.
 func NewChain(middlewares ...MiddlewareFunc) Chain {
-	// スライスのコピーを作成して、元のスライスへの変更を防ぐ
+	// Create a copy of the slice to prevent changes to the original slice
 	newMiddlewares := make([]MiddlewareFunc, len(middlewares))
 	copy(newMiddlewares, middlewares)
 	return Chain{middlewares: newMiddlewares}
 }
 
-// Then は既存のチェーンの最後に新しいミドルウェアを追加します。
-// このメソッドは新しい Chain インスタンスを返し、元の Chain は変更されません。
+// Then adds a new middleware to the end of the existing chain.
+// This method returns a new Chain instance, and the original Chain is not modified.
 func (c Chain) Then(mw MiddlewareFunc) Chain {
 	newMiddlewares := make([]MiddlewareFunc, len(c.middlewares)+1)
 	copy(newMiddlewares, c.middlewares)
@@ -39,30 +39,30 @@ func (c Chain) Then(mw MiddlewareFunc) Chain {
 	return Chain{middlewares: newMiddlewares}
 }
 
-// HandlerFunc はミドルウェアチェーンの最後に最終的な HandlerFunc を適用し、
-// すべてのミドルウェアが適用された HandlerFunc を返します。
-// ミドルウェアは適用された順（最初に追加されたものが最も外側）に実行されます。
-// final ハンドラが nil の場合、デフォルトのエラーを返すハンドラが使用されます。
+// HandlerFunc applies the final HandlerFunc to the end of the middleware chain,
+// and returns a HandlerFunc with all middleware applied.
+// Middleware is executed in the order they were applied (the first added is the outermost).
+// If the final handler is nil, a default handler that returns an error is used.
 func (c Chain) HandlerFunc(final HandlerFunc) HandlerFunc {
 	if final == nil {
-		// デフォルトのハンドラ
+		// Default handler
 		final = func(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 			return events.APIGatewayProxyResponse{}, errors.New("no handler provided")
 		}
 	}
 
-	// スライスの逆順から適用していくことで、最初に追加されたミドルウェアが最も外側になる
-	// 例: NewChain(m1, m2).Then(m3).HandlerFunc(h) の場合、実行順は m1 -> m2 -> m3 -> h -> m3 -> m2 -> m1
+	// Apply in reverse order of the slice to make the first added middleware the outermost
+	// Example: NewChain(m1, m2).Then(m3).HandlerFunc(h) executes in the order m1 -> m2 -> m3 -> h -> m3 -> m2 -> m1
 	for i := len(c.middlewares) - 1; i >= 0; i-- {
 		final = c.middlewares[i](final)
 	}
 	return final
 }
 
-// Use は複数のミドルウェアを単一の HandlerFunc に適用するヘルパー関数です。
-// Chain 構造体を使わずに、直接ミドルウェアを適用したい場合に便利です。
-// ミドルウェアは渡された順序の逆から適用されるため、実行順序は引数の順序と同じになります。
-// 例: Use(h, m1, m2, m3) の場合、実行順は m1 -> m2 -> m3 -> h -> m3 -> m2 -> m1
+// Use is a helper function to apply multiple middleware to a single HandlerFunc.
+// This is convenient when you want to apply middleware directly without using the Chain structure.
+// Middleware is applied in reverse order of the arguments, so the execution order is the same as the argument order.
+// Example: Use(h, m1, m2, m3) executes in the order m1 -> m2 -> m3 -> h -> m3 -> m2 -> m1
 func Use(h HandlerFunc, middlewares ...MiddlewareFunc) HandlerFunc {
 	return NewChain(middlewares...).HandlerFunc(h)
 }
