@@ -18,19 +18,19 @@ const (
 	defaultErrorContentType = "text/plain; charset=utf-8"
 )
 
-// AllowContentTypeConfig is the configuration for the AllowContentType middleware.
-type AllowContentTypeConfig struct {
+// Config is the configuration for the AllowContentType middleware.
+type Config struct {
 	allowedTypes     []string
 	errorBody        string
 	errorContentType string
 }
 
-// AllowContentTypeOption is a function type to modify the AllowContentType configuration.
-type AllowContentTypeOption func(*AllowContentTypeConfig)
+// Option is a function type to modify the AllowContentType configuration.
+type Option func(*Config)
 
 // WithResponse sets the response Content-Type header and response body for error cases.
-func WithResponse(contentType string, body string) AllowContentTypeOption {
-	return func(c *AllowContentTypeConfig) {
+func WithResponse(contentType string, body string) Option {
+	return func(c *Config) {
 		c.errorContentType = contentType
 		c.errorBody = body
 	}
@@ -49,9 +49,9 @@ func WithResponse(contentType string, body string) AllowContentTypeOption {
 // Examples:
 // AllowContentType([]string{"application/json"}) allows "application/json" and "application/json; charset=utf-8".
 // AllowContentType([]string{"application/json", "application/xml"}) allows both JSON and XML.
-func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) middleware.MiddlewareFunc {
+func AllowContentType(contentTypes []string, opts ...Option) middleware.MiddlewareFunc {
 	// Default configuration
-	config := AllowContentTypeConfig{
+	config := Config{
 		allowedTypes:     contentTypes,
 		errorBody:        defaultErrorBody,
 		errorContentType: defaultErrorContentType,

@@ -7,20 +7,20 @@ import (
 	"github.com/nakat-t/aws-lambda-go-middleware/middleware"
 )
 
-// CtxKeyRequestID is the default key type used to store the request ID within the context.
-type CtxKeyRequestID struct{}
+// CtxKey is the default key type used to store the request ID within the context.
+type CtxKey struct{}
 
-// RequestIDConfig is the configuration for the RequestID and ExtendedRequestID middleware.
-type RequestIDConfig struct {
+// Config is the configuration for the RequestID and ExtendedRequestID middleware.
+type Config struct {
 	ctxKey any
 }
 
-// RequestIDOption is a function type to modify the RequestID and ExtendedRequestID configuration.
-type RequestIDOption func(*RequestIDConfig)
+// Option is a function type to modify the RequestID and ExtendedRequestID configuration.
+type Option func(*Config)
 
 // WithCtxKey specifies the key of the request ID to be set in the context.
-func WithCtxKey(ctxKey any) RequestIDOption {
-	return func(c *RequestIDConfig) {
+func WithCtxKey(ctxKey any) Option {
+	return func(c *Config) {
 		c.ctxKey = ctxKey
 	}
 }
@@ -28,10 +28,10 @@ func WithCtxKey(ctxKey any) RequestIDOption {
 // RequestID is middleware that extracts the request ID from the API Gateway request context
 // and sets it in the Go context.Context.
 // If the request ID does not exist, an empty string is set.
-func RequestID(opts ...RequestIDOption) middleware.MiddlewareFunc {
+func RequestID(opts ...Option) middleware.MiddlewareFunc {
 	// Default configuration
-	config := RequestIDConfig{
-		ctxKey: CtxKeyRequestID{},
+	config := Config{
+		ctxKey: CtxKey{},
 	}
 	// Apply options
 	for _, opt := range opts {
@@ -55,10 +55,10 @@ func RequestID(opts ...RequestIDOption) middleware.MiddlewareFunc {
 // ExtendedRequestID is middleware that extracts the extended request ID from the API Gateway request context
 // and sets it in the Go context.Context.
 // If the extended request ID does not exist, an empty string is set.
-func ExtendedRequestID(opts ...RequestIDOption) middleware.MiddlewareFunc {
+func ExtendedRequestID(opts ...Option) middleware.MiddlewareFunc {
 	// Default configuration
-	config := RequestIDConfig{
-		ctxKey: CtxKeyRequestID{},
+	config := Config{
+		ctxKey: CtxKey{},
 	}
 	// Apply options
 	for _, opt := range opts {

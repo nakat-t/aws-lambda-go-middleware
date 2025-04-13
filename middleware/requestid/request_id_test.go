@@ -43,7 +43,7 @@ func TestRequestID(t *testing.T) {
 			// Call ctx.Value inside this handler and verify that the expected value can be retrieved
 			mockHandler := func(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 				// Get request ID from context
-				actualReqID := ctx.Value(CtxKeyRequestID{})
+				actualReqID := ctx.Value(CtxKey{})
 				// Assert that it matches the expected request ID
 				assert.Equal(tt.expectedReqID, actualReqID, "ctx.Value should return the correct request ID")
 
@@ -100,7 +100,7 @@ func TestExtendedRequestID(t *testing.T) {
 			// Mock final handler
 			mockHandler := func(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 				// Get extended request ID from context
-				actualExtendedReqID := ctx.Value(CtxKeyRequestID{})
+				actualExtendedReqID := ctx.Value(CtxKey{})
 				// Assert that it matches the expected extended request ID
 				assert.Equal(tt.expectedExtendedReqID, actualExtendedReqID, "ctx.Value should return the correct extended request ID")
 
@@ -147,7 +147,7 @@ func TestRequestIDWithCustomCtxKey(t *testing.T) {
 		assert.Equal(testReqID, actualReqID, "ctx.Value with custom key should return the correct request ID")
 
 		// Verify the default key doesn't have a value (since we used a custom key)
-		defaultKeyValue := ctx.Value(CtxKeyRequestID{})
+		defaultKeyValue := ctx.Value(CtxKey{})
 		assert.Nil(defaultKeyValue, "Default context key should not contain a value when custom key is used")
 
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusOK}, nil
@@ -259,7 +259,7 @@ func TestGetReqID_ContextWithoutID(t *testing.T) {
 	ctx := context.Background()
 
 	// Call ctx.Value on a context without a request ID set
-	reqID := ctx.Value(CtxKeyRequestID{})
+	reqID := ctx.Value(CtxKey{})
 
 	// Expect an empty string to be returned
 	assert.Empty(reqID, "ctx.Value should return an empty string for context without request ID")

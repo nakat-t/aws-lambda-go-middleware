@@ -58,12 +58,15 @@ import (
 
 // Actual business logic
 func myHandler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	reqID := ctx.Value(requestid.CtxKeyRequestID{}).(string)
+	reqID := ctx.Value(requestid.CtxKey{}).(string)
 	log.Printf("Processing request: %s", reqID)
 	// ... business logic ...
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusOK,
-		Body:       "Hello from Lambda!",
+		Headers:    map[string]string{
+			"Content-Type": "application/json",
+		},
+		Body: request.Body,
 	}, nil
 }
 
@@ -86,19 +89,19 @@ func main() {
 
 ### `RequestID`, `ExtendedRequestID`
 
-Extract the request ID (`RequestContext.RequestID`) or the extended request ID (`RequestContext.ExtendedRequestID`) from the API Gateway request context and set it to `context.Context`. Subsequent middleware and handlers can retrieve this ID using the `CtxKeyRequestID` key.
+Extract the request ID (`RequestContext.RequestID`) or the extended request ID (`RequestContext.ExtendedRequestID`) from the API Gateway request context and set it to `context.Context`. Subsequent middleware and handlers can retrieve this ID using the `CtxKey` key.
 
 **Signature:**
 
 ```go
-func RequestID(opts ...RequestIDOption) middleware.MiddlewareFunc
+func RequestID(opts ...Option) middleware.MiddlewareFunc
 ```
 
 **Options:**
 
 ```go
 // WithCtxKey specifies the key of the request ID to be set in the context.
-func WithCtxKey(ctxKey any) RequestIDOption
+func WithCtxKey(ctxKey any) Option
 ```
 
 ### `AllowContentType`
@@ -108,14 +111,14 @@ Validates that the request's `Content-Type` header is included in the specified 
 **Signature:**
 
 ```go
-func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) middleware.MiddlewareFunc
+func AllowContentType(contentTypes []string, opts ...Option) middleware.MiddlewareFunc
 ```
 
 **Options:**
 
 ```go
 // Customize the response Content-Type header and body returned when Content-Type is not allowed.
-func WithResponse(contentType string, body string) AllowContentTypeOption
+func WithResponse(contentType string, body string) Option
 ```
 
 **Comparison Rules:**
