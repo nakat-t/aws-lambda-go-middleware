@@ -1,6 +1,6 @@
 # AWS Lambda Go Middleware
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/nakat-t/aws-lambda-go-middleware/middleware.svg)](https://pkg.go.dev/github.com/nakat-t/aws-lambda-go-middleware/middleware)
+[![Go Reference](https://pkg.go.dev/badge/github.com/nakat-t/aws-lambda-go-middleware.svg)](https://pkg.go.dev/github.com/nakat-t/aws-lambda-go-middleware)
 <!-- Add other badges like build status, code coverage, license etc. if applicable -->
 
 `aws-lambda-go-middleware` is a library that provides `net/http` style middleware functionality for AWS Lambda Go handlers (handling `events.APIGatewayProxyRequest`). It allows you to modularize request preprocessing, response postprocessing, error handling, etc., and apply them to handlers as reusable components.
