@@ -162,6 +162,26 @@ func WithRequestBodyLogging(enable bool) Option
 func WithResponseBodyLogging(enable bool) Option
 ```
 
+### `Validate`
+
+This is middleware that validates the request body using the `github.com/go-playground/validator/v10` package. It unmarshals the request body into a variable of type T, performs validation, and if the validation passes, sets it to the context. If there is an error, it returns 400 Bad Request.
+
+**Signature:**
+
+```go
+func Validate[T any](opts ...Option) middleware.MiddlewareFunc
+```
+
+**Options:**
+
+```go
+// WithCtxKey specifies the key of the unmarshaled request value to be set in the context.
+func WithCtxKey(ctxKey any) Option
+
+// Customize the response Content-Type header and body returned when validation error.
+func WithResponse(contentType string, body string) Option
+```
+
 ## License
 
 This project is released under the license defined in the [LICENSE](LICENSE) file.
