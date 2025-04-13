@@ -3,7 +3,9 @@ package validate
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"net/http"
+	"unicode"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/go-playground/validator/v10"
@@ -17,6 +19,11 @@ const (
 	// defaultErrorContentType is the default Content-Type when validation fails
 	defaultErrorContentType = "text/plain; charset=utf-8"
 )
+
+// RequestUnmarshaler is an interface that allows custom unmarshaling from request body
+type RequestUnmarshaler interface {
+	UnmarshalFromRequest([]byte) error
+}
 
 // CtxKey is the default key type for the validated request value stored in the context
 type CtxKey struct{}
@@ -46,13 +53,39 @@ func WithResponse(contentType string, body string) Option {
 	}
 }
 
+// determineContentType examines the first non-whitespace character of the request body
+// to determine whether it's JSON or XML.
+// Returns "json" for JSON content, "xml" for XML content, or "unknown" if neither.
+func determineContentType(body string) string {
+	// Skip any leading whitespace
+	// Check the first non-whitespace character
+	for _, r := range body {
+		if !unicode.IsSpace(r) {
+			switch r {
+			case '{', '[': // JSON typically starts with { or [
+				return "json"
+			case '<': // XML typically starts with <
+				return "xml"
+			default:
+				return "unknown"
+			}
+		}
+	}
+	return "unknown"
+}
+
 // Validate creates a middleware that validates the request body as the specified type T
 //
 // The middleware performs the following processes:
-// 1. Unmarshals the request body as JSON into a variable of type T
-// 2. Performs validation of type T using validator/v10 (tags must be set)
-// 3. Returns a 400 Bad Request error if validation fails
-// 4. If validation succeeds, sets the value of type T in the context
+// 1. If type T implements RequestUnmarshaler interface, it uses UnmarshalFromRequest method
+// 2. Otherwise, it automatically detects if the request body is JSON or XML based on the first non-whitespace character:
+//   - '{' or '[' for JSON (unmarshals using json.Unmarshal)
+//   - '<' for XML (unmarshals using xml.Unmarshal)
+//   - Other characters default to JSON
+//
+// 3. Performs validation of type T using validator/v10 (tags must be set)
+// 4. Returns a 400 Bad Request error if validation fails
+// 5. If validation succeeds, sets the value of type T in the context
 //
 // The key to set in the context defaults to CtxKey{}, but can be changed with the WithCtxKey option
 // The response in case of an error can be customized with the WithResponse option
@@ -107,9 +140,37 @@ func Validate[T any](opts ...Option) middleware.MiddlewareFunc {
 			}
 
 			var data T
-			// Unmarshal the JSON format request body into type T
-			if err := json.Unmarshal([]byte(request.Body), &data); err != nil {
-				return errorResponse, nil
+			requestBody := []byte(request.Body)
+
+			// Check if type T implements RequestUnmarshaler interface
+			var requestUnmarshaler RequestUnmarshaler
+			dataPtr := interface{}(&data)
+			if value, ok := dataPtr.(RequestUnmarshaler); ok {
+				requestUnmarshaler = value
+				// Use the custom unmarshaler
+				if err := requestUnmarshaler.UnmarshalFromRequest(requestBody); err != nil {
+					return errorResponse, nil
+				}
+			} else {
+				// Determine the content type from the first non-whitespace character
+				contentType := determineContentType(request.Body)
+
+				// Unmarshal the request body based on the content type
+				switch contentType {
+				case "json":
+					if err := json.Unmarshal(requestBody, &data); err != nil {
+						return errorResponse, nil
+					}
+				case "xml":
+					if err := xml.Unmarshal(requestBody, &data); err != nil {
+						return errorResponse, nil
+					}
+				default:
+					// Default to JSON if content type cannot be determined
+					if err := json.Unmarshal(requestBody, &data); err != nil {
+						return errorResponse, nil
+					}
+				}
 			}
 
 			// Execute validation
