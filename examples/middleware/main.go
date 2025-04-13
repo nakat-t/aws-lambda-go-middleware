@@ -34,7 +34,7 @@ func mainHandler(ctx context.Context, request events.APIGatewayProxyRequest) (ev
 
 func main() {
 	m1 := mw.RequestID()
-	m2 := mw.AllowContentType([]string{"application/json"}, mw.WithResponseBody("Only application/json is allowed"))
+	m2 := mw.AllowContentType([]string{"application/json"}, mw.WithResponse("application/json", "{\"error\":\"Only application/json is allowed\"}"))
 
 	// Apply the chain to the final handler
 	wrappedHandler := mw.Use(mainHandler, m1, m2)

@@ -135,7 +135,7 @@ func TestAllowContentType(t *testing.T) {
 
 			if !tt.expectNextCalled {
 				// Check default body for error case
-				assert.Contains(response.Body, defaultUnsupportedMediaTypeBody)
+				assert.Contains(response.Body, defaultErrorBody)
 				assert.Equal("text/plain; charset=utf-8", response.Headers["Content-Type"])
 			} else {
 				assert.Equal("OK", response.Body) // Body returned by next handler
@@ -144,9 +144,10 @@ func TestAllowContentType(t *testing.T) {
 	}
 }
 
-func TestAllowContentType_WithOptions(t *testing.T) {
+func TestAllowContentType_WithResponse(t *testing.T) {
 	assert := assert.New(t)
-	customErrorBody := "Invalid Content Type Provided"
+	customErrorBody := "Invalid JSON content type"
+	customContentType := "application/json"
 	nextCalled := false
 
 	// Mock to record if the next handler was called
@@ -157,13 +158,13 @@ func TestAllowContentType_WithOptions(t *testing.T) {
 
 	// Create middleware with options
 	middleware := AllowContentType(
-		[]string{"application/vnd.api+json"},
-		WithResponseBody(customErrorBody),
+		[]string{"application/xml"},
+		WithResponse(customContentType, customErrorBody),
 	)
 	handlerWithMiddleware := middleware(mockHandler)
 
 	// --- Test Case 1: Allowed Content Type ---
-	requestAllowed := createRequest("application/vnd.api+json")
+	requestAllowed := createRequest("application/xml")
 	responseAllowed, errAllowed := handlerWithMiddleware(context.Background(), requestAllowed)
 
 	assert.NoError(errAllowed)
@@ -179,9 +180,9 @@ func TestAllowContentType_WithOptions(t *testing.T) {
 	assert.NoError(errDisallowed) // Middleware handles the error, returns response
 	assert.Equal(http.StatusUnsupportedMediaType, responseDisallowed.StatusCode)
 	assert.False(nextCalled, "Next handler should not be called for disallowed type")
-	// Check custom error body
+	// Check custom error body and content type
 	assert.Equal(customErrorBody, responseDisallowed.Body)
-	assert.Equal("text/plain; charset=utf-8", responseDisallowed.Headers["Content-Type"])
+	assert.Equal(customContentType, responseDisallowed.Headers["Content-Type"])
 
 	// --- Test Case 3: Missing Content Type ---
 	nextCalled = false                  // Reset flag
@@ -191,7 +192,8 @@ func TestAllowContentType_WithOptions(t *testing.T) {
 	assert.NoError(errMissing)
 	assert.Equal(http.StatusUnsupportedMediaType, responseMissing.StatusCode)
 	assert.False(nextCalled, "Next handler should not be called for missing header")
-	assert.Equal(customErrorBody, responseMissing.Body) // Custom error body should be used
+	assert.Equal(customErrorBody, responseMissing.Body)                      // Custom error body should be used
+	assert.Equal(customContentType, responseMissing.Headers["Content-Type"]) // Custom content type should be used
 }
 
 func TestAllowContentType_DefaultOptions(t *testing.T) {
@@ -214,5 +216,5 @@ func TestAllowContentType_DefaultOptions(t *testing.T) {
 	assert.Equal(http.StatusUnsupportedMediaType, response.StatusCode)
 	assert.False(nextCalled)
 	// Check default error body
-	assert.Equal(defaultUnsupportedMediaTypeBody, response.Body)
+	assert.Equal(defaultErrorBody, response.Body)
 }

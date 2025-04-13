@@ -112,8 +112,8 @@ func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) Mid
 **Options:**
 
 ```go
-// Customize the response body returned when Content-Type is not allowed.
-func WithResponseBody(body string) AllowContentTypeOption
+// Customize the response Content-Type header and body returned when Content-Type is not allowed.
+func WithResponse(contentType string, body string) AllowContentTypeOption
 ```
 
 **Comparison Rules:**

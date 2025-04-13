@@ -10,22 +10,27 @@ import (
 )
 
 const (
-	// defaultUnsupportedMediaTypeBody is the default response body when Content-Type is not allowed.
-	defaultUnsupportedMediaTypeBody = "Unsupported Media Type"
+	// defaultErrorBody is the default response body when Content-Type is not allowed.
+	defaultErrorBody = "Unsupported Media Type"
+
+	// defaultErrorContentType is the default Content-Type for error responses.
+	defaultErrorContentType = "text/plain; charset=utf-8"
 )
 
 // AllowContentTypeConfig is the configuration for the AllowContentType middleware.
 type AllowContentTypeConfig struct {
-	allowedTypes []string
-	errorBody    string
+	allowedTypes     []string
+	errorBody        string
+	errorContentType string
 }
 
 // AllowContentTypeOption is a function type to modify the AllowContentType configuration.
 type AllowContentTypeOption func(*AllowContentTypeConfig)
 
-// WithResponseBody sets the response body for error cases.
-func WithResponseBody(body string) AllowContentTypeOption {
+// WithResponse sets the response Content-Type header and response body for error cases.
+func WithResponse(contentType string, body string) AllowContentTypeOption {
 	return func(c *AllowContentTypeConfig) {
+		c.errorContentType = contentType
 		c.errorBody = body
 	}
 }
@@ -34,7 +39,7 @@ func WithResponseBody(body string) AllowContentTypeOption {
 //
 // If the Content-Type header does not exist or has a media type not in the list,
 // it returns a response with status code 415 (Unsupported Media Type) and "Unsupported Media Type" body by default.
-// The response body can be customized with the WithResponseBody option.
+// The response body can be customized with the WithResponse option.
 //
 // If the contentTypes list is empty, all Content-Types will be rejected.
 // Content-Type comparison is done only on the media type part, parameters (e.g., charset=utf-8) are ignored.
@@ -46,8 +51,9 @@ func WithResponseBody(body string) AllowContentTypeOption {
 func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) MiddlewareFunc {
 	// Default configuration
 	config := AllowContentTypeConfig{
-		allowedTypes: contentTypes,
-		errorBody:    defaultUnsupportedMediaTypeBody,
+		allowedTypes:     contentTypes,
+		errorBody:        defaultErrorBody,
+		errorContentType: defaultErrorContentType,
 	}
 	// Apply options
 	for _, opt := range opts {
@@ -67,7 +73,7 @@ func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) Mid
 	errorResponse := events.APIGatewayProxyResponse{
 		StatusCode: http.StatusUnsupportedMediaType,
 		Body:       config.errorBody,
-		Headers:    map[string]string{"Content-Type": "text/plain; charset=utf-8"},
+		Headers:    map[string]string{"Content-Type": config.errorContentType},
 	}
 
 	return func(next HandlerFunc) HandlerFunc {
