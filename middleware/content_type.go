@@ -16,8 +16,8 @@ const (
 
 // AllowContentTypeConfig is the configuration for the AllowContentType middleware.
 type AllowContentTypeConfig struct {
-	AllowedTypes []string
-	ErrorBody    string
+	allowedTypes []string
+	errorBody    string
 }
 
 // AllowContentTypeOption is a function type to modify the AllowContentType configuration.
@@ -26,7 +26,7 @@ type AllowContentTypeOption func(*AllowContentTypeConfig)
 // WithResponseBody sets the response body for error cases.
 func WithResponseBody(body string) AllowContentTypeOption {
 	return func(c *AllowContentTypeConfig) {
-		c.ErrorBody = body
+		c.errorBody = body
 	}
 }
 
@@ -46,8 +46,8 @@ func WithResponseBody(body string) AllowContentTypeOption {
 func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) MiddlewareFunc {
 	// Default configuration
 	config := AllowContentTypeConfig{
-		AllowedTypes: contentTypes,
-		ErrorBody:    defaultUnsupportedMediaTypeBody,
+		allowedTypes: contentTypes,
+		errorBody:    defaultUnsupportedMediaTypeBody,
 	}
 	// Apply options
 	for _, opt := range opts {
@@ -55,8 +55,8 @@ func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) Mid
 	}
 
 	// Convert allowed Content-Types to lowercase and store in a map
-	allowedMap := make(map[string]struct{}, len(config.AllowedTypes))
-	for _, ct := range config.AllowedTypes {
+	allowedMap := make(map[string]struct{}, len(config.allowedTypes))
+	for _, ct := range config.allowedTypes {
 		mediaType, _, err := mime.ParseMediaType(strings.ToLower(ct))
 		if err == nil {
 			allowedMap[mediaType] = struct{}{}
@@ -66,7 +66,7 @@ func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) Mid
 	// Prepare error response
 	errorResponse := events.APIGatewayProxyResponse{
 		StatusCode: http.StatusUnsupportedMediaType,
-		Body:       config.ErrorBody,
+		Body:       config.errorBody,
 		Headers:    map[string]string{"Content-Type": "text/plain; charset=utf-8"},
 	}
 
