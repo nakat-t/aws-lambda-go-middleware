@@ -42,13 +42,10 @@ func (c Chain) Then(mw MiddlewareFunc) Chain {
 // HandlerFunc applies the final HandlerFunc to the end of the middleware chain,
 // and returns a HandlerFunc with all middleware applied.
 // Middleware is executed in the order they were applied (the first added is the outermost).
-// If the final handler is nil, a default handler that returns an error is used.
+// If the final handler is nil, it panics.
 func (c Chain) HandlerFunc(final HandlerFunc) HandlerFunc {
 	if final == nil {
-		// Default handler
-		final = func(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-			return events.APIGatewayProxyResponse{}, errors.New("no handler provided")
-		}
+		panic(errors.New("final handler is nil"))
 	}
 
 	// Apply in reverse order of the slice to make the first added middleware the outermost
