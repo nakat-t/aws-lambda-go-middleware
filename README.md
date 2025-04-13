@@ -1,6 +1,6 @@
 # AWS Lambda Go Middleware
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/armai/aws-lambda-go-middleware/middleware.svg)](https://pkg.go.dev/github.com/armai/aws-lambda-go-middleware/middleware)
+[![Go Reference](https://pkg.go.dev/badge/github.com/nakat-t/aws-lambda-go-middleware/middleware.svg)](https://pkg.go.dev/github.com/nakat-t/aws-lambda-go-middleware/middleware)
 <!-- Add other badges like build status, code coverage, license etc. if applicable -->
 
 `aws-lambda-go-middleware` is a library that provides `net/http` style middleware functionality for AWS Lambda Go handlers (handling `events.APIGatewayProxyRequest`). It allows you to modularize request preprocessing, response postprocessing, error handling, etc., and apply them to handlers as reusable components.
@@ -67,7 +67,7 @@ func myHandler(ctx context.Context, request events.APIGatewayProxyRequest) (even
 
 func main() {
     // Add request ID to context
-	m1 := mw.RequestID
+	m1 := mw.RequestID()
 	// Allow only application/json
 	m2 := mw.AllowContentType([]string{"application/json"})
 
@@ -89,7 +89,7 @@ Extracts the request ID (`RequestContext.RequestID`) from the API Gateway reques
 **Signature:**
 
 ```go
-func RequestID(next HandlerFunc) HandlerFunc
+func RequestID() MiddlewareFunc
 func GetReqID(ctx context.Context) string
 ```
 

@@ -14,17 +14,19 @@ type reqIDKey struct{}
 // and sets it in the Go context.Context.
 // If the request ID does not exist, an empty string is set.
 // Subsequent handlers and middleware can use the GetReqID function to retrieve the request ID from the context.
-func RequestID(next HandlerFunc) HandlerFunc {
-	return func(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-		// Get request ID from APIGatewayProxyRequestContext
-		reqID := request.RequestContext.RequestID
+func RequestID() MiddlewareFunc {
+	return func(next HandlerFunc) HandlerFunc {
+		return func(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+			// Get request ID from APIGatewayProxyRequestContext
+			reqID := request.RequestContext.RequestID
 
-		// Set request ID in the new context
-		// Using context.WithValue to associate reqID with the key reqIDKey{}
-		ctxWithReqID := context.WithValue(ctx, reqIDKey{}, reqID)
+			// Set request ID in the new context
+			// Using context.WithValue to associate reqID with the key reqIDKey{}
+			ctxWithReqID := context.WithValue(ctx, reqIDKey{}, reqID)
 
-		// Call the next handler with the new context containing the request ID
-		return next(ctxWithReqID, request)
+			// Call the next handler with the new context containing the request ID
+			return next(ctxWithReqID, request)
+		}
 	}
 }
 

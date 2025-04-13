@@ -33,7 +33,7 @@ func mainHandler(ctx context.Context, request events.APIGatewayProxyRequest) (ev
 }
 
 func main() {
-	m1 := mw.RequestID
+	m1 := mw.RequestID()
 	m2 := mw.AllowContentType([]string{"application/json"}, mw.WithResponseBody("Only application/json is allowed"))
 
 	// Apply the chain to the final handler

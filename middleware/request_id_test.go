@@ -55,7 +55,7 @@ func TestRequestID(t *testing.T) {
 			}
 
 			// Apply RequestID middleware
-			handlerWithMiddleware := RequestID(mockHandler)
+			handlerWithMiddleware := RequestID()(mockHandler)
 
 			// Execute the handler with middleware applied
 			response, err := handlerWithMiddleware(context.Background(), request)
