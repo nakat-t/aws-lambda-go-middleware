@@ -2,6 +2,7 @@ package validate
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
 	"net/http"
@@ -140,11 +141,22 @@ func Validate[T any](opts ...Option) middleware.MiddlewareFunc {
 			}
 
 			var data T
-			requestBody := []byte(request.Body)
+			var requestBody []byte
+
+			// Handle base64 encoded body if needed
+			if request.IsBase64Encoded {
+				decodedBody, err := base64.StdEncoding.DecodeString(request.Body)
+				if err != nil {
+					return errorResponse, nil
+				}
+				requestBody = decodedBody
+			} else {
+				requestBody = []byte(request.Body)
+			}
 
 			// Check if type T implements RequestUnmarshaler interface
 			var requestUnmarshaler RequestUnmarshaler
-			dataPtr := interface{}(&data)
+			dataPtr := any(&data)
 			if value, ok := dataPtr.(RequestUnmarshaler); ok {
 				requestUnmarshaler = value
 				// Use the custom unmarshaler
@@ -153,7 +165,7 @@ func Validate[T any](opts ...Option) middleware.MiddlewareFunc {
 				}
 			} else {
 				// Determine the content type from the first non-whitespace character
-				contentType := determineContentType(request.Body)
+				contentType := determineContentType(string(requestBody))
 
 				// Unmarshal the request body based on the content type
 				switch contentType {

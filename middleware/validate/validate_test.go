@@ -2,6 +2,7 @@ package validate
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -363,6 +364,96 @@ func TestValidate_InvalidXML(t *testing.T) {
 	// Assertion
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestValidate_Base64EncodedJSONRequest(t *testing.T) {
+	// Create valid user data
+	validUser := TestUser{
+		Name:  "John Doe",
+		Email: "john@example.com",
+		Age:   30,
+	}
+	jsonData, _ := json.Marshal(validUser)
+
+	// Base64 encode the JSON data
+	base64Data := base64.StdEncoding.EncodeToString(jsonData)
+
+	// Create a request with Base64 encoded body
+	req := events.APIGatewayProxyRequest{
+		Body:            base64Data,
+		IsBase64Encoded: true,
+	}
+
+	// Create Validate middleware with mock handler and context key
+	handler := Validate[TestUser]()(mockHandlerWithContext(CtxKey{}))
+
+	// Execute middleware
+	resp, err := handler(context.Background(), req)
+
+	// Assertion
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Unmarshal the response body and compare it with the original data
+	var responseUser TestUser
+	err = json.Unmarshal([]byte(resp.Body), &responseUser)
+	assert.NoError(t, err)
+	assert.Equal(t, validUser, responseUser)
+}
+
+func TestValidate_Base64EncodedXMLRequest(t *testing.T) {
+	// Valid user data in XML format
+	xmlData := []byte(`<TestUser><name>John Doe</name><email>john@example.com</email><age>30</age></TestUser>`)
+
+	// Base64 encode the XML data
+	base64Data := base64.StdEncoding.EncodeToString(xmlData)
+
+	// Create a request with Base64 encoded body
+	req := events.APIGatewayProxyRequest{
+		Body:            base64Data,
+		IsBase64Encoded: true,
+	}
+
+	// Create Validate middleware with handler that returns validated data
+	handler := Validate[TestUser]()(mockHandlerWithContext(CtxKey{}))
+
+	// Execute middleware
+	resp, err := handler(context.Background(), req)
+
+	// Assertion
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Unmarshal the response body to check data
+	var responseUser TestUser
+	err = json.Unmarshal([]byte(resp.Body), &responseUser)
+	assert.NoError(t, err)
+	assert.Equal(t, "John Doe", responseUser.Name)
+	assert.Equal(t, "john@example.com", responseUser.Email)
+	assert.Equal(t, 30, responseUser.Age)
+}
+
+func TestValidate_InvalidBase64EncodedRequest(t *testing.T) {
+	// Invalid Base64 string
+	invalidBase64 := "This is not a valid base64 string!!!"
+
+	// Create a request with invalid Base64 encoded body
+	req := events.APIGatewayProxyRequest{
+		Body:            invalidBase64,
+		IsBase64Encoded: true,
+	}
+
+	// Create Validate middleware
+	handler := Validate[TestUser]()(mockHandler)
+
+	// Execute middleware
+	resp, err := handler(context.Background(), req)
+
+	// Assertion
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, defaultErrorBody, resp.Body)
+	assert.Equal(t, defaultErrorContentType, resp.Headers["Content-Type"])
 }
 
 func TestDetermineContentType(t *testing.T) {
