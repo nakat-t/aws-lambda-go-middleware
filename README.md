@@ -87,23 +87,6 @@ func main() {
 
 ## Provided Middleware
 
-### `RequestID`, `ExtendedRequestID`
-
-Extract the request ID (`RequestContext.RequestID`) or the extended request ID (`RequestContext.ExtendedRequestID`) from the API Gateway request context and set it to `context.Context`. Subsequent middleware and handlers can retrieve this ID using the `CtxKey` key.
-
-**Signature:**
-
-```go
-func RequestID(opts ...Option) middleware.MiddlewareFunc
-```
-
-**Options:**
-
-```go
-// WithCtxKey specifies the key of the request ID to be set in the context.
-func WithCtxKey(ctxKey any) Option
-```
-
 ### `AllowContentType`
 
 Validates that the request's `Content-Type` header is included in the specified allowlist.
@@ -134,6 +117,49 @@ For a runnable sample code that includes examples of using `RequestID` and `Allo
 ```bash
 # Run from the repository root directory
 go run examples/middleware/main.go
+```
+
+### `RequestID`, `ExtendedRequestID`
+
+Extract the request ID (`RequestContext.RequestID`) or the extended request ID (`RequestContext.ExtendedRequestID`) from the API Gateway request context and set it to `context.Context`. Subsequent middleware and handlers can retrieve this ID using the `CtxKey` key.
+
+**Signature:**
+
+```go
+func RequestID(opts ...Option) middleware.MiddlewareFunc
+```
+
+**Options:**
+
+```go
+// WithCtxKey specifies the key of the request ID to be set in the context.
+func WithCtxKey(ctxKey any) Option
+```
+
+### `StructuredLogger`
+
+Creates middleware that logs request and response information using structured logging with `log/slog`.
+Requests are automatically recorded before the handler is executed, and responses, execution times, and errors are automatically recorded after the handler is executed.
+
+**Signature:**
+
+```go
+func StructuredLogger(opts ...Option) middleware.MiddlewareFunc
+```
+
+**Options:**
+
+```go
+// WithLogger sets a custom logger for the StructuredLogger middleware.
+func WithLogger(logger *slog.Logger) Option
+
+// WithRequestBodyLogging enables or disables request body logging in the middleware.
+// By default, logging is disabled.
+func WithRequestBodyLogging(enable bool) Option
+
+// WithResponseBodyLogging enables or disables response body logging in the middleware.
+// By default, logging is disabled.
+func WithResponseBodyLogging(enable bool) Option
 ```
 
 ## License
