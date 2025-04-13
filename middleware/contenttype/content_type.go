@@ -1,4 +1,4 @@
-package middleware
+package contenttype
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/nakat-t/aws-lambda-go-middleware/middleware"
 )
 
 const (
@@ -48,7 +49,7 @@ func WithResponse(contentType string, body string) AllowContentTypeOption {
 // Examples:
 // AllowContentType([]string{"application/json"}) allows "application/json" and "application/json; charset=utf-8".
 // AllowContentType([]string{"application/json", "application/xml"}) allows both JSON and XML.
-func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) MiddlewareFunc {
+func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) middleware.MiddlewareFunc {
 	// Default configuration
 	config := AllowContentTypeConfig{
 		allowedTypes:     contentTypes,
@@ -76,7 +77,7 @@ func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) Mid
 		Headers:    map[string]string{"Content-Type": config.errorContentType},
 	}
 
-	return func(next HandlerFunc) HandlerFunc {
+	return func(next middleware.HandlerFunc) middleware.HandlerFunc {
 		return func(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 			contentTypeHeader := request.Headers[http.CanonicalHeaderKey("Content-Type")]
 

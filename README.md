@@ -51,12 +51,14 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	mw "github.com/nakat-t/aws-lambda-go-middleware/middleware"
+	"github.com/nakat-t/aws-lambda-go-middleware/middleware"
+	"github.com/nakat-t/aws-lambda-go-middleware/middleware/requestid"
+	"github.com/nakat-t/aws-lambda-go-middleware/middleware/contenttype"
 )
 
 // Actual business logic
 func myHandler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	reqID := ctx.Value(mw.CtxKeyRequestID{}).(string)
+	reqID := ctx.Value(requestid.CtxKeyRequestID{}).(string)
 	log.Printf("Processing request: %s", reqID)
 	// ... business logic ...
 	return events.APIGatewayProxyResponse{
@@ -67,12 +69,12 @@ func myHandler(ctx context.Context, request events.APIGatewayProxyRequest) (even
 
 func main() {
     // Add request ID to context
-	m1 := mw.RequestID()
+	m1 := requestid.RequestID()
 	// Allow only application/json
-	m2 := mw.AllowContentType([]string{"application/json"})
+	m2 := contenttype.AllowContentType([]string{"application/json"})
 
 	// Apply chain to handler
-	wrappedHandler := mw.Use(myHandler, m1, m2)
+	wrappedHandler := middleware.Use(myHandler, m1, m2)
 
 	// Start Lambda
 	lambda.Start(wrappedHandler)
@@ -89,7 +91,7 @@ Extract the request ID (`RequestContext.RequestID`) or the extended request ID (
 **Signature:**
 
 ```go
-func RequestID(opts ...RequestIDOption) MiddlewareFunc
+func RequestID(opts ...RequestIDOption) middleware.MiddlewareFunc
 ```
 
 **Options:**
@@ -106,7 +108,7 @@ Validates that the request's `Content-Type` header is included in the specified 
 **Signature:**
 
 ```go
-func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) MiddlewareFunc
+func AllowContentType(contentTypes []string, opts ...AllowContentTypeOption) middleware.MiddlewareFunc
 ```
 
 **Options:**

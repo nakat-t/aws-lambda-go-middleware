@@ -1,4 +1,4 @@
-package middleware
+package contenttype
 
 import (
 	"context"

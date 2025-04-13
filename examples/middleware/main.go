@@ -8,13 +8,15 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
-	mw "github.com/nakat-t/aws-lambda-go-middleware/middleware"
+	"github.com/nakat-t/aws-lambda-go-middleware/middleware"
+	"github.com/nakat-t/aws-lambda-go-middleware/middleware/contenttype"
+	"github.com/nakat-t/aws-lambda-go-middleware/middleware/requestid"
 )
 
 // mainHandler is a simple handler that retrieves the request ID and includes it in the response body.
 func mainHandler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	// Get the request ID set by the RequestID middleware
-	reqID := ctx.Value(mw.CtxKeyRequestID{}).(string)
+	reqID := ctx.Value(requestid.CtxKeyRequestID{}).(string)
 
 	log.Printf("Handler received request. RequestID: %s", reqID)
 
@@ -33,11 +35,11 @@ func mainHandler(ctx context.Context, request events.APIGatewayProxyRequest) (ev
 }
 
 func main() {
-	m1 := mw.RequestID()
-	m2 := mw.AllowContentType([]string{"application/json"}, mw.WithResponse("application/json", "{\"error\":\"Only application/json is allowed\"}"))
+	m1 := requestid.RequestID()
+	m2 := contenttype.AllowContentType([]string{"application/json"}, contenttype.WithResponse("application/json", "{\"error\":\"Only application/json is allowed\"}"))
 
 	// Apply the chain to the final handler
-	wrappedHandler := mw.Use(mainHandler, m1, m2)
+	wrappedHandler := middleware.Use(mainHandler, m1, m2)
 
 	// --- Running sample requests ---
 	log.Println("--- Running Sample Request 1 (Allowed Content-Type) ---")

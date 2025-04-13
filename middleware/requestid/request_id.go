@@ -1,9 +1,10 @@
-package middleware
+package requestid
 
 import (
 	"context"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/nakat-t/aws-lambda-go-middleware/middleware"
 )
 
 // CtxKeyRequestID is the default key type used to store the request ID within the context.
@@ -27,7 +28,7 @@ func WithCtxKey(ctxKey any) RequestIDOption {
 // RequestID is middleware that extracts the request ID from the API Gateway request context
 // and sets it in the Go context.Context.
 // If the request ID does not exist, an empty string is set.
-func RequestID(opts ...RequestIDOption) MiddlewareFunc {
+func RequestID(opts ...RequestIDOption) middleware.MiddlewareFunc {
 	// Default configuration
 	config := RequestIDConfig{
 		ctxKey: CtxKeyRequestID{},
@@ -37,7 +38,7 @@ func RequestID(opts ...RequestIDOption) MiddlewareFunc {
 		opt(&config)
 	}
 
-	return func(next HandlerFunc) HandlerFunc {
+	return func(next middleware.HandlerFunc) middleware.HandlerFunc {
 		return func(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 			// Get request ID from APIGatewayProxyRequestContext
 			reqID := request.RequestContext.RequestID
@@ -54,7 +55,7 @@ func RequestID(opts ...RequestIDOption) MiddlewareFunc {
 // ExtendedRequestID is middleware that extracts the extended request ID from the API Gateway request context
 // and sets it in the Go context.Context.
 // If the extended request ID does not exist, an empty string is set.
-func ExtendedRequestID(opts ...RequestIDOption) MiddlewareFunc {
+func ExtendedRequestID(opts ...RequestIDOption) middleware.MiddlewareFunc {
 	// Default configuration
 	config := RequestIDConfig{
 		ctxKey: CtxKeyRequestID{},
@@ -64,7 +65,7 @@ func ExtendedRequestID(opts ...RequestIDOption) MiddlewareFunc {
 		opt(&config)
 	}
 
-	return func(next HandlerFunc) HandlerFunc {
+	return func(next middleware.HandlerFunc) middleware.HandlerFunc {
 		return func(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 			// Get extended request ID from APIGatewayProxyRequestContext
 			reqID := request.RequestContext.ExtendedRequestID
