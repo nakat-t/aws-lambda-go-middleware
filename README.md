@@ -56,7 +56,7 @@ import (
 
 // Actual business logic
 func myHandler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	reqID := mw.GetReqID(ctx) // Get value from RequestID middleware
+	reqID := ctx.Value(mw.CtxKeyRequestID{}).(string)
 	log.Printf("Processing request: %s", reqID)
 	// ... business logic ...
 	return events.APIGatewayProxyResponse{
@@ -82,15 +82,21 @@ func main() {
 
 ## Provided Middleware
 
-### `RequestID`
+### `RequestID`, `ExtendedRequestID`
 
-Extracts the request ID (`RequestContext.RequestID`) from the API Gateway request context and sets it in the `context.Context`. Subsequent middleware and handlers can retrieve this ID using `GetReqID(ctx)`. This is useful for logging and tracing.
+Extract the request ID (`RequestContext.RequestID`) or the extended request ID (`RequestContext.ExtendedRequestID`) from the API Gateway request context and set it to `context.Context`. Subsequent middleware and handlers can retrieve this ID using the `CtxKeyRequestID` key.
 
 **Signature:**
 
 ```go
-func RequestID() MiddlewareFunc
-func GetReqID(ctx context.Context) string
+func RequestID(opts ...RequestIDOption) MiddlewareFunc
+```
+
+**Options:**
+
+```go
+// WithCtxKey specifies the key of the request ID to be set in the context.
+func WithCtxKey(ctxKey any) RequestIDOption
 ```
 
 ### `AllowContentType`

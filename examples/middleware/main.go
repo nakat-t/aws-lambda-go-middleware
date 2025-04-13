@@ -14,7 +14,7 @@ import (
 // mainHandler is a simple handler that retrieves the request ID and includes it in the response body.
 func mainHandler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	// Get the request ID set by the RequestID middleware
-	reqID := mw.GetReqID(ctx)
+	reqID := ctx.Value(mw.CtxKeyRequestID{}).(string)
 
 	log.Printf("Handler received request. RequestID: %s", reqID)
 
