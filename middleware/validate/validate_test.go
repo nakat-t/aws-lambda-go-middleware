@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"testing"
 
@@ -27,13 +28,47 @@ type TestUserWithUnmarshaler struct {
 	FromJSON bool   // Added to track which unmarshal method was used
 }
 
-// UnmarshalFromRequest implements the RequestUnmarshaler interface
-func (u *TestUserWithUnmarshaler) UnmarshalFromRequest(data []byte) error {
+// UnmarshalRequest implements the RequestUnmarshaler interface
+func (u *TestUserWithUnmarshaler) UnmarshalRequest(data []byte) error {
 	// For test purposes, manually set the values
 	u.Name = "John Custom"
 	u.Email = "john.custom@example.com"
 	u.Age = 35
 	u.FromJSON = false
+	return nil
+}
+
+// TestUserWithValidator implements the Validator interface
+type TestUserWithValidator struct {
+	Name        string `json:"name"`
+	Email       string `json:"email"`
+	Age         int    `json:"age"`
+	IsValidated bool   `json:"-"`          // For test purposes, to track if Validate was called
+	ShouldFail  bool   `json:"shouldFail"` // Used to test validation failure
+}
+
+// Validate implements the Validator interface
+func (u *TestUserWithValidator) Validate() error {
+	u.IsValidated = true
+
+	// Basic validation logic
+	if u.Name == "" {
+		return errors.New("name is required")
+	}
+
+	if u.Email == "" {
+		return errors.New("email is required")
+	}
+
+	if u.Age < 0 || u.Age > 130 {
+		return errors.New("age must be between 0 and 130")
+	}
+
+	// Used for testing validation failure
+	if u.ShouldFail {
+		return errors.New("validation intentionally failed")
+	}
+
 	return nil
 }
 
@@ -52,6 +87,24 @@ func mockHandler(ctx context.Context, req events.APIGatewayProxyRequest) (events
 func mockHandlerWithContext(key any) middleware.HandlerFunc {
 	return func(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 		data, ok := ctx.Value(key).(TestUser)
+		if !ok {
+			return events.APIGatewayProxyResponse{
+				StatusCode: http.StatusInternalServerError,
+				Body:       "failed to get context value",
+			}, nil
+		}
+		responseBody, _ := json.Marshal(data)
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusOK,
+			Body:       string(responseBody),
+		}, nil
+	}
+}
+
+// Generic mock handler to retrieve any type from context
+func mockHandlerWithGenericContext[T any](key any) middleware.HandlerFunc {
+	return func(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+		data, ok := ctx.Value(key).(T)
 		if !ok {
 			return events.APIGatewayProxyResponse{
 				StatusCode: http.StatusInternalServerError,
@@ -344,6 +397,227 @@ func TestValidate_WithCustomUnmarshaler(t *testing.T) {
 	assert.Equal(t, "john.custom@example.com", responseUser.Email)
 	assert.Equal(t, 35, responseUser.Age)
 	assert.False(t, responseUser.FromJSON) // Confirm it used the custom unmarshaler
+}
+
+func TestValidate_WithCustomValidator_Success(t *testing.T) {
+	// Valid user data with custom validator
+	validUser := TestUserWithValidator{
+		Name:       "Jane Doe",
+		Email:      "jane@example.com",
+		Age:        28,
+		ShouldFail: false,
+	}
+	jsonData, _ := json.Marshal(validUser)
+
+	// Create a request
+	req := events.APIGatewayProxyRequest{
+		Body: string(jsonData),
+	}
+
+	// Create a special handler that directly checks the IsValidated flag
+	handlerWithValidator := func(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+		data, ok := ctx.Value(CtxKey{}).(TestUserWithValidator)
+		if !ok {
+			return events.APIGatewayProxyResponse{
+				StatusCode: http.StatusInternalServerError,
+				Body:       "failed to get context value",
+			}, nil
+		}
+
+		// Direct assertion on IsValidated flag
+		if !data.IsValidated {
+			return events.APIGatewayProxyResponse{
+				StatusCode: http.StatusInternalServerError,
+				Body:       "validator was not called",
+			}, nil
+		}
+
+		// Return success with the data for other assertions
+		responseBody, _ := json.Marshal(data)
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusOK,
+			Body:       string(responseBody),
+		}, nil
+	}
+
+	// Create Validate middleware
+	handler := Validate[TestUserWithValidator]()(handlerWithValidator)
+
+	// Execute middleware
+	resp, err := handler(context.Background(), req)
+
+	// Assertion
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Unmarshal the response body and check
+	var responseUser TestUserWithValidator
+	err = json.Unmarshal([]byte(resp.Body), &responseUser)
+	assert.NoError(t, err)
+	assert.Equal(t, validUser.Name, responseUser.Name)
+	assert.Equal(t, validUser.Email, responseUser.Email)
+	assert.Equal(t, validUser.Age, responseUser.Age)
+	// No need to check IsValidated here, as it was checked in the handler
+}
+
+func TestValidate_WithCustomValidator_Failure(t *testing.T) {
+	// User data that will fail custom validation
+	invalidUser := TestUserWithValidator{
+		Name:       "Jane Doe",
+		Email:      "jane@example.com",
+		Age:        28,
+		ShouldFail: true, // This will cause the Validate() method to return an error
+	}
+	jsonData, _ := json.Marshal(invalidUser)
+
+	// Create a request
+	req := events.APIGatewayProxyRequest{
+		Body: string(jsonData),
+	}
+
+	// Create Validate middleware
+	handler := Validate[TestUserWithValidator]()(mockHandler)
+
+	// Execute middleware
+	resp, err := handler(context.Background(), req)
+
+	// Assertion
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, defaultErrorBody, resp.Body)
+	assert.Equal(t, defaultErrorContentType, resp.Headers["Content-Type"])
+}
+
+func TestValidate_WithCustomValidator_MissingFields(t *testing.T) {
+	// User with missing required fields
+	invalidUser := TestUserWithValidator{
+		Name:  "", // Missing name
+		Email: "jane@example.com",
+		Age:   28,
+	}
+	jsonData, _ := json.Marshal(invalidUser)
+
+	// Create a request
+	req := events.APIGatewayProxyRequest{
+		Body: string(jsonData),
+	}
+
+	// Create Validate middleware
+	handler := Validate[TestUserWithValidator]()(mockHandler)
+
+	// Execute middleware
+	resp, err := handler(context.Background(), req)
+
+	// Assertion
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestValidate_WithCustomValidator_InvalidAge(t *testing.T) {
+	// User with invalid age
+	invalidUser := TestUserWithValidator{
+		Name:  "Jane Doe",
+		Email: "jane@example.com",
+		Age:   150, // Greater than 130
+	}
+	jsonData, _ := json.Marshal(invalidUser)
+
+	// Create a request
+	req := events.APIGatewayProxyRequest{
+		Body: string(jsonData),
+	}
+
+	// Create Validate middleware
+	handler := Validate[TestUserWithValidator]()(mockHandler)
+
+	// Execute middleware
+	resp, err := handler(context.Background(), req)
+
+	// Assertion
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+// TestUserWithCustomAll implements both interfaces explicitly
+type TestUserWithCustomAll struct {
+	Name        string `json:"name"`
+	Email       string `json:"email"`
+	Age         int    `json:"age"`
+	FromJSON    bool   // Track unmarshaler usage
+	IsValidated bool   // Track validator usage
+}
+
+// UnmarshalRequest implements the RequestUnmarshaler interface
+func (u *TestUserWithCustomAll) UnmarshalRequest(data []byte) error {
+	// For test purposes, manually set the values
+	u.Name = "Custom Name"
+	u.Email = "custom@example.com"
+	u.Age = 42
+	u.FromJSON = false
+	return nil
+}
+
+// Validate implements the Validator interface
+func (u *TestUserWithCustomAll) Validate() error {
+	u.IsValidated = true
+	return nil
+}
+
+func TestValidate_WithBothCustomInterfaces(t *testing.T) {
+	// Create a mock handler that returns the validated data
+	handlerWithBoth := func(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+		data, ok := ctx.Value(CtxKey{}).(TestUserWithCustomAll)
+		if !ok {
+			return events.APIGatewayProxyResponse{
+				StatusCode: http.StatusInternalServerError,
+				Body:       "failed to get context value",
+			}, nil
+		}
+
+		// Check that both interfaces were used
+		if !data.IsValidated {
+			return events.APIGatewayProxyResponse{
+				StatusCode: http.StatusInternalServerError,
+				Body:       "validator not called",
+			}, nil
+		}
+
+		if data.FromJSON {
+			return events.APIGatewayProxyResponse{
+				StatusCode: http.StatusInternalServerError,
+				Body:       "unmarshaler method not used",
+			}, nil
+		}
+
+		responseBody, _ := json.Marshal(data)
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusOK,
+			Body:       string(responseBody),
+		}, nil
+	}
+
+	// Create a request - content doesn't matter since we have a custom unmarshaler
+	req := events.APIGatewayProxyRequest{
+		Body: `{"name": "Jane Both", "email": "jane.both@example.com", "age": 32}`,
+	}
+
+	// Create Validate middleware
+	handler := Validate[TestUserWithCustomAll]()(handlerWithBoth)
+
+	// Execute middleware
+	resp, err := handler(context.Background(), req)
+
+	// Assertion
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Verify the data through the response
+	var responseUser TestUserWithCustomAll
+	err = json.Unmarshal([]byte(resp.Body), &responseUser)
+	assert.NoError(t, err)
+	assert.Equal(t, "Custom Name", responseUser.Name)
+	assert.Equal(t, "custom@example.com", responseUser.Email)
+	assert.Equal(t, 42, responseUser.Age)
 }
 
 func TestValidate_InvalidXML(t *testing.T) {

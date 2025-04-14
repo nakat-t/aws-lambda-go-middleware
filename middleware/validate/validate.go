@@ -23,7 +23,12 @@ const (
 
 // RequestUnmarshaler is an interface that allows custom unmarshaling from request body
 type RequestUnmarshaler interface {
-	UnmarshalFromRequest([]byte) error
+	UnmarshalRequest([]byte) error
+}
+
+// Validator is an interface that allows custom validation logic
+type Validator interface {
+	Validate() error
 }
 
 // CtxKey is the default key type for the validated request value stored in the context
@@ -160,7 +165,7 @@ func Validate[T any](opts ...Option) middleware.MiddlewareFunc {
 			if value, ok := dataPtr.(RequestUnmarshaler); ok {
 				requestUnmarshaler = value
 				// Use the custom unmarshaler
-				if err := requestUnmarshaler.UnmarshalFromRequest(requestBody); err != nil {
+				if err := requestUnmarshaler.UnmarshalRequest(requestBody); err != nil {
 					return errorResponse, nil
 				}
 			} else {
@@ -185,9 +190,20 @@ func Validate[T any](opts ...Option) middleware.MiddlewareFunc {
 				}
 			}
 
-			// Execute validation
-			if err := validate.Struct(data); err != nil {
-				return errorResponse, nil
+			// Check if type T implements Validator interface
+			var validator Validator
+			dataPtr = any(&data)
+			if value, ok := dataPtr.(Validator); ok {
+				validator = value
+				// Use the custom validator
+				if err := validator.Validate(); err != nil {
+					return errorResponse, nil
+				}
+			} else {
+				// Execute validation
+				if err := validate.Struct(data); err != nil {
+					return errorResponse, nil
+				}
 			}
 
 			// If validation succeeds, set the data in the context
